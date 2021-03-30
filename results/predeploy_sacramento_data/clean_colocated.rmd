@@ -1,0 +1,45 @@
+---
+title: "Untitled"
+author: "Audrey Smith"
+date: "3/30/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+```
+
+```{r}
+colocation_raw <- read.csv('C:/Users/18313/Desktop/richmond_air/ramn_down_up/results/predeploy_sacramento_data/sac_colocation_min_corrected.csv')
+colocation_corrected <- read.csv('C:/Users/18313/Desktop/richmond_air/ramn_down_up/results/predeploy_sacramento_data/sac_colocation_min_raw.csv') %>% 
+  rename('PM25_cor'='PM25_raw', 'NO2_cor'='NO2_raw', 'O3_cor'='O3_raw') %>%
+  select(-c(temp, DP, RH))
+
+colocation <- full_join(colocation_corrected, colocation_raw, by = c('ID', 'Time')) %>%
+  arrange(ID, Time) %>%
+  mutate(date_hour = paste0(substr(Time, 1, 13), ':00:00'))
+
+colocation_clean <- colocation %>%
+  group_by(ID, date_hour) %>%
+  add_count() %>%
+  filter(n >= .75*60) %>%
+  summarize(PM25_cor = mean(PM25_cor, na.rm = T), O3_cor = mean(O3_cor, na.rm = T), NO2_cor = mean(NO2_cor, na.rm = T), 
+            PM25_raw = mean(PM25_raw, na.rm = T), O3_raw = mean(O3_raw, na.rm = T), NO2_raw = mean(NO2_raw, na.rm = T),
+            temp = mean(temp, na.rm = T), RH = mean(RH, na.rm = T), DP = mean(DP, na.rm = T)) %>%
+  ungroup() %>%
+  group_by(ID) %>%
+  mutate(rank_dh = order(date_hour)) %>%
+  filter(rank_dh > 6) %>%
+  select(-rank_dh) %>%
+  rename('Time'='date_hour')
+
+colocation_clean
+
+#write.csv(coloc_clean, 'sac_colocation_hourly_correctedRaw.csv', row.names = F)
+```
