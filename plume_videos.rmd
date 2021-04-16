@@ -33,7 +33,7 @@ read_and_calibrate_data <- function(start_time, end_time){
   
   print('Reading in raw AQY data')
   
-  raw_data <- read.csv('results_downloader_data/PSE_AQY_2019-12-06_2021-01-04_freq_10.csv') %>% #update to local 
+  raw_data <- read.csv('PSE_AQY_2019-12-06_2021-01-04_freq_10.csv') %>% #update to local 
     filter(Time >= start_time & Time <= end_time)
   
   cal_params <- read.csv('pse_calvals_2021-04.csv') #update to local
@@ -131,6 +131,17 @@ get_color_palette <- function(pollutant_of_interest){
 }
 ```
 
+
+````{r}
+delete_existing_images <- function(){
+  
+  existing_images <- list.files('results_videos', '*.png')
+  
+  unlink(existing_images)
+  
+}
+```
+
 ```{r}
 get_data_for_timestamp <- function(calibrated_data, timestamp, pollutant_of_interest){
   
@@ -185,14 +196,14 @@ get_map_for_timestamp <- function(timestamp_data, timestamp_raster, pollutant_of
     addLegend('bottomright', pal = color_palette, values = c(0, upperbound), 
               title = paste(pollutant_of_interest, units, '</br>', time_mapped_date, '</br>', time_mapped_hour), opacity = 1)
   
-  path_for_map <- paste0('results_videos/', pollutant_of_interest, '_', time_mapped_date, '_', str_remove_all(time_mapped_hour, ':'), '.png')
+  path_for_map <- paste0('results_videos/png/', pollutant_of_interest, '_', time_mapped_date, '_', str_remove_all(time_mapped_hour, ':'), '.png')
   mapshot(x = timestamp_map, file = path_for_map)
 
 }
 ```
 
 ```{r}
-make_mapframe <- function(calibrated_data, timestamp, pollutant_of_interest, raster_grid, raster_coords){
+make_mapframe <- function(calibrated_data, timestamp, pollutant_of_interest, raster_grid, raster_coords, color_palette){
   
   timestamp_data <- get_data_for_timestamp(calibrated_data, timestamp, pollutant_of_interest)
 
@@ -205,7 +216,7 @@ make_mapframe <- function(calibrated_data, timestamp, pollutant_of_interest, ras
 ```{r}
 animate_mapframe_timeseries <- function(pollutant_of_interest, start_time, end_time){
   
-  mapframe_paths <- list.files('results', '*.png', full.names = T)
+  mapframe_paths <- list.files('results_videos/png/', '*.png', full.names = T)
   mapframe_paths <- sort(mapframe_paths)
   
   mapframe_images <- image_read(mapframe_paths)
@@ -217,16 +228,6 @@ animate_mapframe_timeseries <- function(pollutant_of_interest, start_time, end_t
   image_write_video(image = mapframe_images, path = animation_path, framerate = 4)
   
   print(paste('Wrote video to', animation_path))
-  
-}
-```
-
-````{r}
-delete_existing_images <- function(){
-  
-  existing_images <- list.files('results_videos', '*.png')
-  
-  unlink(existing_images)
   
 }
 ```
@@ -247,9 +248,9 @@ make_pollution_video <- function(pollutant_of_interest, start_time, end_time){
   
   delete_existing_images()
   
-  lapply(timestamps, make_mapframe, calibrated_data=calibrated_data, pollutant_of_interest=pollutant_of_interest, raster_grid=raster_grid, raster_coords=raster_coords)
+  lapply(timestamps, make_mapframe, calibrated_data=calibrated_data, pollutant_of_interest=pollutant_of_interest, raster_grid=raster_grid, raster_coords=raster_coords, color_palette=color_palette)
   
-  animate_mapframe_series(pollutant_of_interest, start_time, end_time)
+  animate_mapframe_timeseries(pollutant_of_interest, start_time, end_time)
 }
 ```
 
