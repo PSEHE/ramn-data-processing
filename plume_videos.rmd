@@ -29,25 +29,24 @@ library(googledrive)
 ```
 
 ```{r}
-read_and_calibrate_data <- function(start_time, end_time){
+read_and_filter_data <- function(start_time, end_time){
   
   print('Reading in raw AQY data')
   
-  raw_data <- read.csv('PSE_AQY_2019-12-06_2021-01-04_freq_10.csv') %>% #update to local 
+  path_to_raw <- list.files('results_calibrated_averaged_data', 'ten', full.names = T)
+
+  raw_data <- read.csv(path_to_raw) %>%
     filter(Time >= start_time & Time <= end_time)
   
-  cal_params <- read.csv('pse_calvals_2021-04.csv') #update to local
+  path_to_calvals <- list.files('results_calibrated_averaged_data', 'pse_calvals', full.names = T)
   
-  print('Calibrating AQY data')
+  cal_params <- read.csv(path_to_calvals) %>% #update to local
+    dplyr::select(ID, Latitude, Longitude) %>%
+    unique()
   
-  calibrated_data <- inner_join(raw_data, cal_params, by = 'ID') %>%
-    filter(Time >= deployment_datetime & Time >= start_date & Time <= end_date) %>%
-    rename('O3_raw'='O3', 'PM25_raw'='PM2.5', 'NO2_raw'='NO2', 'Ox_raw'='Ox') %>%
-    mutate(O3 = O3.gain*(O3_raw-O3.offset), 
-           Ox = Ox.gain*(Ox_raw-Ox.offset), NO2_int = O3 - NO2.a.value*Ox, NO2 = NO2.gain*(NO2_int-NO2.offset),
-           PM25 = PM.gain*(PM25_raw - PM.offset)) %>%
-    mutate_at(.vars = c('O3', 'Ox', 'NO2', 'PM25'), .funs = ~round(pmin(pmax(.x, 0), 500), 1)) %>%
-    dplyr::select(ID, Time, Longitude, Latitude, O3_raw, O3, NO2_raw, NO2, PM25_raw, PM25, RH, TEMP, DP)
+  print('Joining data with coordinates')
+  
+  calibrated_data <- inner_join(raw_data, cal_params, by = 'ID')
   
   return(calibrated_data)
   
@@ -77,7 +76,7 @@ get_simple_features <- function(calibrated_data){
     unique()
   
   monitor_sf <- st_as_sf(x = monitor_coordinates, coords = c('Longitude', 'Latitude'), crs = 4326, na.fail = F)
-  
+
   return(monitor_sf)
 }
 ```
@@ -122,9 +121,9 @@ get_raster_grid <- function(raster_coords){
 ```{r}
 get_color_palette <- function(pollutant_of_interest){
   
-  upperbound <- switch(pollutant_of_interest, O3=100, NO2=50, PM25=50)
+  upperbound <- switch(pollutant_of_interest, O3=100, NO2=50, PM25=100) #PM normally 50
   
-  color_palette <- colorNumeric(palette = c('navy', 'blue', 'cyan', 'yellow', 'red', 'red3'), 
+  color_palette <- colorNumeric(palette = c('navy', 'blue', 'cyan3', 'cyan', 'yellow', 'red', 'red3'), 
                                 domain = c(0, upperbound), na.color = 'darkred')
   
   return(color_palette)
@@ -135,7 +134,7 @@ get_color_palette <- function(pollutant_of_interest){
 ````{r}
 delete_existing_images <- function(){
   
-  existing_images <- list.files('results_videos', '*.png')
+  existing_images <- list.files('results_videos/png', '*.png', full.names = T)
   
   unlink(existing_images)
   
@@ -179,7 +178,7 @@ get_map_for_timestamp <- function(timestamp_data, timestamp_raster, pollutant_of
   
   print('Plotting it all on a map')
   
-  upperbound <- switch(pollutant_of_interest, 'O3'=100, 50)
+  upperbound <- switch(pollutant_of_interest, 'O3'=100, 'NO2'=50, 'PM25'=100)
   units <- switch(pollutant_of_interest, 'PM25'='(ug/m3)', '(ppb)')
   time_mapped_date <- substr(unique(timestamp_data$Time), 1, 10)
   time_mapped_hour <- substr(unique(timestamp_data$Time), 12, 19)
@@ -219,12 +218,14 @@ animate_mapframe_timeseries <- function(pollutant_of_interest, start_time, end_t
   mapframe_paths <- list.files('results_videos/png/', '*.png', full.names = T)
   mapframe_paths <- sort(mapframe_paths)
   
+  print('Reading mapframe images')
   mapframe_images <- image_read(mapframe_paths)
   
   vid_start <- str_replace_all(str_remove_all(start_time, ':'), ' ', '-')
   vid_end <- str_replace_all(str_remove_all(end_time, ':'), ' ', '-')
   
   animation_path <- paste0('results_videos/', pollutant_of_interest, '_', vid_start, '_', vid_end, '.mp4')
+  print('Generating animation')
   image_write_video(image = mapframe_images, path = animation_path, framerate = 4)
   
   print(paste('Wrote video to', animation_path))
@@ -235,7 +236,7 @@ animate_mapframe_timeseries <- function(pollutant_of_interest, start_time, end_t
 ```{r}
 make_pollution_video <- function(pollutant_of_interest, start_time, end_time){
   
-  calibrated_data <- read_and_calibrate_data(start_time, end_time)
+  calibrated_data <- read_and_filter_data(start_time, end_time)
   
   monitor_sf <- get_simple_features(calibrated_data)
   
@@ -255,7 +256,7 @@ make_pollution_video <- function(pollutant_of_interest, start_time, end_time){
 ```
 
 ```{r}
-make_pollution_video('PM25', '2020-08-20 00:00:00', '2020-08-20 01:00:00')
+make_pollution_video('PM25', '2020-09-10 00:00:00', '2020-09-10 02:00:00')
 ```
 
 

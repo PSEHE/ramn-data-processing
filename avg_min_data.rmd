@@ -1,0 +1,132 @@
+---
+title: "min_data_avging"
+author: "Audrey Smith"
+date: "4/23/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(stringr)
+```
+
+```{R}
+minute_files_aqy <- list.files('results_downloader_data/one_minute_data', '*.csv', full.names = T)
+
+minute_data_net <- data.frame()
+
+for(minute_file in minute_files_aqy){
+  
+  minute_data_aqy <- read.csv(minute_file)
+  
+  if(all(c('Data.PM2.5', 'Data.NO2', 'Data.O3') %in% colnames(minute_data_aqy))){
+  minute_data_net <- rbind(minute_data_net, minute_data_aqy)
+  }
+  
+}
+
+minute_data_net <- minute_data_net %>%
+  unique()
+
+minute_data_net
+```
+
+```{r}
+monthly_calvals_paths <- list.dirs('../calibration/aeroqual')
+recent_path <- monthly_calvals_paths[length(monthly_calvals_paths)]
+recent_calvals <- list.files(recent_path, '*.csv', full.names = T)
+
+calvals <- read.csv(recent_calvals)
+
+calvals
+```
+
+
+```{r}
+average_minute_data <- function(averaging_time_str){
+  
+  last_digit_timestamp <- switch(averaging_time_str, 'ten'=15, 'sixty'=13)
+  timestamp_suffix <- switch(averaging_time_str, 'ten'='0:00', 'sixty'=':00:00')
+  averaging_time_int <- switch(averaging_time_str, 'ten'=10, 'sixty'=60)
+  
+  min_data <- mutate(minute_data_net,
+                      Time = str_replace(Time, 'T', ' '),
+                      avg_timestamp = paste0(str_sub(Time, 1, last_digit_timestamp), timestamp_suffix))
+  
+  print(paste('Averaging data for every', averaging_time_str, 'min'))
+  
+  avg_data <- group_by(min_data, ID, avg_timestamp) %>%
+    add_count() %>%
+    filter(n >= 0.75*averaging_time_int) %>%
+    summarize(PM25_raw = mean(Data.PM2.5, na.rm = T), 
+              O3_raw = mean(Data.O3, na.rm = T), 
+              NO2_raw = mean(Data.NO2, na.rm = T), 
+              TEMP = round(mean(Data.TEMP, na.rm = T), 3), 
+              RH = round(mean(Data.RH, na.rm = T), 3), 
+              DP = round(mean(Data.DP, na.rm = T), 3), .groups = 'drop_last') %>%
+    rename('Time'='avg_timestamp')
+  
+  print('Joining with calibration parameters')
+  
+  data_calvals <- inner_join(avg_data, calvals, by = 'ID') %>%
+    filter(Time >= deployment_date & Time >= start_date & Time <= end_date)
+  
+  print('Calibrating data')
+  
+  data_cal <- data_calvals %>%
+    mutate(Ox_raw = NO2_raw + 1.1*O3_raw,
+           Ox = Ox.gain*(Ox_raw - Ox.offset), 
+           O3 = O3.gain*(O3_raw - O3.offset), 
+           NO2_int = Ox - NO2.a.value*O3, 
+           NO2 = NO2.gain*(NO2_int - NO2.offset),
+           PM25 = PM.gain*(PM25_raw - PM.offset)) %>%
+    select(ID, Time, TEMP, RH, DP, PM25, PM25_raw, O3, O3_raw, Ox, Ox_raw, NO2, NO2_raw)
+
+  data_cal_round <- mutate_at(data_cal, .vars = c('PM25', 'PM25_raw', 'O3', 'O3_raw', 'Ox', 'Ox_raw', 'NO2', 'NO2_raw'), .funs = ~round(.x, 3))
+  
+  return(data_cal_round)
+  
+}
+```
+
+```{r}
+calibrated_10min <- average_minute_data('ten')
+calibrated_60min <- average_minute_data('sixty')
+
+#write.csv(calibrated_60min, 'results_calibrated_averaged_data/AQY_60min_2021-07-12.csv', row.names = F)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
