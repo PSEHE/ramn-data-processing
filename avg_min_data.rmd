@@ -30,9 +30,6 @@ for(minute_file in minute_files_aqy){
   
 }
 
-minute_data_net <- minute_data_net %>%
-  unique()
-
 minute_data_net
 ```
 
@@ -63,14 +60,15 @@ average_minute_data <- function(averaging_time_str){
   avg_data <- group_by(min_data, ID, avg_timestamp) %>%
     add_count() %>%
     filter(n >= 0.75*averaging_time_int) %>%
-    summarize(PM25_raw = mean(Data.PM2.5, na.rm = T), 
-              O3_raw = mean(Data.O3, na.rm = T), 
-              NO2_raw = mean(Data.NO2, na.rm = T), 
+    summarize(PM25_raw = mean(Data.PM2.5.raw, na.rm = T),
+              PM25_precal = mean(Data.PM2.5, na.rm = T), 
+              O3_precal = mean(Data.O3, na.rm = T), 
+              NO2_precal = mean(Data.NO2, na.rm = T), 
               TEMP = round(mean(Data.TEMP, na.rm = T), 3), 
               RH = round(mean(Data.RH, na.rm = T), 3), 
               DP = round(mean(Data.DP, na.rm = T), 3), .groups = 'drop_last') %>%
     rename('Time'='avg_timestamp')
-  
+
   print('Joining with calibration parameters')
   
   data_calvals <- inner_join(avg_data, calvals, by = 'ID') %>%
@@ -79,15 +77,15 @@ average_minute_data <- function(averaging_time_str){
   print('Calibrating data')
   
   data_cal <- data_calvals %>%
-    mutate(Ox_raw = NO2_raw + 1.1*O3_raw,
-           Ox = Ox.gain*(Ox_raw - Ox.offset), 
-           O3 = O3.gain*(O3_raw - O3.offset), 
+    mutate(Ox_precal = NO2_precal + 1.1*O3_precal,
+           Ox = Ox.gain*(Ox_precal - Ox.offset), 
+           O3 = O3.gain*(O3_precal - O3.offset), 
            NO2_int = Ox - NO2.a.value*O3, 
            NO2 = NO2.gain*(NO2_int - NO2.offset),
-           PM25 = PM.gain*(PM25_raw - PM.offset)) %>%
-    select(ID, Time, TEMP, RH, DP, PM25, PM25_raw, O3, O3_raw, Ox, Ox_raw, NO2, NO2_raw)
+           PM25 = PM.gain*(PM25_precal - PM.offset)) %>%
+    select(ID, Time, TEMP, RH, DP, PM25, PM25_precal, PM25_raw, O3, O3_precal, Ox, Ox_precal, NO2, NO2_precal)
 
-  data_cal_round <- mutate_at(data_cal, .vars = c('PM25', 'PM25_raw', 'O3', 'O3_raw', 'Ox', 'Ox_raw', 'NO2', 'NO2_raw'), .funs = ~round(.x, 3))
+  data_cal_round <- mutate_at(data_cal, .vars = c('PM25', 'PM25_precal', 'PM25_raw', 'O3', 'O3_precal', 'Ox', 'Ox_precal', 'NO2', 'NO2_precal'), .funs = ~round(.x, 3))
   
   return(data_cal_round)
   
@@ -98,7 +96,7 @@ average_minute_data <- function(averaging_time_str){
 calibrated_10min <- average_minute_data('ten')
 calibrated_60min <- average_minute_data('sixty')
 
-#write.csv(calibrated_60min, 'results_calibrated_averaged_data/AQY_60min_2021-07-12.csv', row.names = F)
+#write.csv(calibrated_60min, 'results_calibrated_averaged_data/AQY633_642_60min_Sac.csv', row.names = F)
 ```
 
 

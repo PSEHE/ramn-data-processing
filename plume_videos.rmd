@@ -149,6 +149,7 @@ get_data_for_timestamp <- function(calibrated_data, timestamp, pollutant_of_inte
   frame_data <- filter(calibrated_data, Time == timestamp) %>%
     dplyr::select(c('Time', pollutant_of_interest, 'Latitude', 'Longitude')) %>%
     rename('pollutant'=pollutant_of_interest) %>%
+    mutate(pollutant = pmax(pollutant, 0)) %>%
     na.omit()
   
   coordinates(frame_data) <- ~Longitude+Latitude
