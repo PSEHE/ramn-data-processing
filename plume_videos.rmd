@@ -33,7 +33,7 @@ read_and_filter_data <- function(start_time, end_time){
   
   print('Reading in raw AQY data')
   
-  path_to_raw <- list.files('results_calibrated_averaged_data', 'ten', full.names = T)
+  path_to_raw <- list.files('results_calibrated_averaged_data', 'flagged_ten', full.names = T)
 
   raw_data <- read.csv(path_to_raw) %>%
     filter(Time >= start_time & Time <= end_time)
@@ -146,10 +146,11 @@ get_data_for_timestamp <- function(calibrated_data, timestamp, pollutant_of_inte
   
   print(paste('Getting data for', pollutant_of_interest, 'at', timestamp))
   
-  frame_data <- filter(calibrated_data, Time == timestamp) %>%
-    dplyr::select(c('Time', pollutant_of_interest, 'Latitude', 'Longitude')) %>%
-    rename('pollutant'=pollutant_of_interest) %>%
-    mutate(pollutant = pmax(pollutant, 0)) %>%
+  frame_data <- rename_with(calibrated_data, .vars = contains(pollutant_of_interest), .fn= ~str_replace_all(.x, pollutant_of_interest, 'pollutant')) %>%
+    filter(pollutant_remove == 0) %>%
+    dplyr::select(c('Time', 'Latitude', 'Longitude', 'pollutant')) %>%
+    filter(Time == timestamp) %>%
+    mutate(pollutant = round(pmax(pollutant, 0), 1)) %>%
     na.omit()
   
   coordinates(frame_data) <- ~Longitude+Latitude
@@ -197,8 +198,10 @@ get_map_for_timestamp <- function(timestamp_data, timestamp_raster, pollutant_of
               title = paste(pollutant_of_interest, units, '</br>', time_mapped_date, '</br>', time_mapped_hour), opacity = 1)
   
   path_for_map <- paste0('results_videos/png/', pollutant_of_interest, '_', time_mapped_date, '_', str_remove_all(time_mapped_hour, ':'), '.png')
+  print(paste('Writing image to', path_for_map))
+  
   mapshot(x = timestamp_map, file = path_for_map)
-
+  
 }
 ```
 
@@ -250,14 +253,19 @@ make_pollution_video <- function(pollutant_of_interest, start_time, end_time){
   
   delete_existing_images()
   
-  lapply(timestamps, make_mapframe, calibrated_data=calibrated_data, pollutant_of_interest=pollutant_of_interest, raster_grid=raster_grid, raster_coords=raster_coords, color_palette=color_palette)
+  lapply(timestamps, make_mapframe, 
+         calibrated_data=calibrated_data, pollutant_of_interest=pollutant_of_interest, 
+         raster_grid=raster_grid, raster_coords=raster_coords, color_palette=color_palette)
   
   animate_mapframe_timeseries(pollutant_of_interest, start_time, end_time)
 }
 ```
 
 ```{r}
-make_pollution_video('PM25', '2020-09-10 00:00:00', '2020-09-10 02:00:00')
+make_pollution_video('PM25', '2020-11-07 00:00:00', '2020-11-08 00:00:00')
+
+cal.data <- read_and_filter_data('2020-11-07 00:00:00', '2020-11-08 00:00:00')
+
 ```
 
 
