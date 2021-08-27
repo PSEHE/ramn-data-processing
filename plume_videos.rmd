@@ -262,9 +262,7 @@ make_pollution_video <- function(pollutant_of_interest, start_time, end_time){
 ```
 
 ```{r}
-make_pollution_video('PM25', '2020-11-07 00:00:00', '2020-11-08 00:00:00')
-
-cal.data <- read_and_filter_data('2020-11-07 00:00:00', '2020-11-08 00:00:00')
+make_pollution_video('PM25', '2020-10-28 00:00:00', '2020-11-03 23:59:00')
 
 ```
 
