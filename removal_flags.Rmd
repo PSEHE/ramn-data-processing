@@ -1,0 +1,101 @@
+---
+title: "Data Quality Flags"
+author: "Audrey Smith"
+date: "9/16/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(data.table)
+library(stringr)
+
+source('source_scripts/flag_for_removal.R')
+source('source_scripts/detect_anomalies.R')
+source('source_scripts/calibrate_data.R')
+```
+
+
+##### FLAG CLEARLY INCORRECT MEASUREMENTS #####
+
+```{r}
+data.unflagged.raw <- read.csv("results_downloader_data/time_averaged/PSE_AQY_60_min_2021-10-07.csv")
+
+cal.params <- read.csv('../calibration/aeroqual/2021-09/pse_calvals_2021-09.csv')
+
+data.unflagged.cal <- calibrate_data(data.unflagged.raw, cal.params)
+
+```
+
+```{r}
+join.cols <- c('ID', 'Time')
+
+constants <- select(data.unflagged.cal, c(ID, Time, Longitude, Latitude, TEMP, RH, DP))
+flags.NO2 <- flag_transient_and_lasting_errors(data.unflagged.cal, 'NO2')
+flags.O3 <- flag_transient_and_lasting_errors(data.unflagged.cal, 'O3')
+flags.PM25 <- flag_transient_and_lasting_errors(data.unflagged.cal, 'PM25')
+
+data.flagged <- full_join(constants, flags.PM25, by = all_of(join.cols)) %>%
+  full_join(flags.O3, by = all_of(join.cols)) %>%
+  full_join(flags.NO2, by = all_of(join.cols))
+```
+
+#### JOIN WITH FIRE AND ANOMALY DATA
+
+```{r}
+anomalies <- read.csv('anomalies_data_ts.csv') %>%
+  dplyr::select(ID, Time, Longitude, Latitude, PM25_anomaly, fire_anomaly, BC, BC_pct) %>%
+  mutate(BC = round(BC, 2))
+
+data.flagged.fires <- right_join(anomalies, data.flagged, by = c('ID', 'Time', 'Longitude', 'Latitude'))
+```
+
+#### FILTER DATA BASED ON FLAGS AND ANOMALIES
+
+```{r}
+data.filtered <- data.flagged.fires %>%
+  mutate(NO2 = ifelse(NO2_rmv_dist == 1 | NO2_rmv_flat == 1 | NO2 < 0 | NO2 > 150, NA, NO2),
+         O3 = ifelse(O3_rmv_dist == 1 | O3_rmv_flat == 1 | O3 < 0 | O3 > 150, NA, O3),
+         PM25 = ifelse(PM25_rmv_dist == 1 | PM25_rmv_flat == 1 | PM25 < 0 | (PM25 > 400 & fire_anomaly == F), NA, PM25),
+         PM25_raw = ifelse(is.na(PM25), NA, PM25_raw)) %>%
+  dplyr::select(!contains('rmv'))
+```
+
+#### APPLY GROWTH FACTORS BASED ON ANOMALIES
+
+```{r}
+growth.factors <- data.frame('rh_lower' = c(0.0, 40.0, 60.0, 70.0, 80.0, 95.0), 
+                             'rh_upper'=c(40.0, 60.0, 70.0, 80.0, 95.0, 100.0), 
+                             'gf_scl'=c(1.0, 1.01, 1.1, 1.2, 1.5, 2.0))
+data.filtered
+
+data.final <- merge(data.filtered, growth.factors) %>%
+  filter(RH > rh_lower & RH <= rh_upper) %>%
+  mutate(PM25 = ifelse(fire_anomaly == T, PM25*gf_scl, PM25))
+
+#write.csv(data.final, 'results_downloader_data/time_averaged/PSE_AQY_2021-10-07_processed.csv', row.names = F)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

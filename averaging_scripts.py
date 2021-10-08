@@ -54,7 +54,7 @@ def average_minute_data(minute_network, averaging_time):
 	minutes_expected = minutes_expected_dict[averaging_time]
 	minutes_fill = minutes_fill_dict[averaging_time]
 
-	minute_network['time'] = minute_network.loc['Time'].str[0:timestamp_cutoff]
+	minute_network['time'] = minute_network['Time'].str[0:timestamp_cutoff]
 	minute_network['minutes_observed'] = minute_network.groupby(['ID', 'time'])['time'].transform('count')
 	minute_network['pct_complete'] = minute_network['minutes_observed']/minutes_expected
 	minute_network = minute_network[minute_network['pct_complete'] >= 0.75]
