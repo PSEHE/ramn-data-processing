@@ -192,7 +192,7 @@ get_map_for_timestamp <- function(timestamp_data, timestamp_raster, pollutant_of
 ```
 
 ```{r}
-make_mapframe <- function(calibrated_data, timestamp, pollutant_of_interest, raster_grid, raster_coords){
+make_mapframe <- function(calibrated_data, timestamp, pollutant_of_interest, raster_grid, raster_coords, color_palette){
   
   timestamp_data <- get_data_for_timestamp(calibrated_data, timestamp, pollutant_of_interest)
 
@@ -205,7 +205,7 @@ make_mapframe <- function(calibrated_data, timestamp, pollutant_of_interest, ras
 ```{r}
 animate_mapframe_timeseries <- function(pollutant_of_interest, start_time, end_time){
   
-  mapframe_paths <- list.files('results', '*.png', full.names = T)
+  mapframe_paths <- list.files('results_videos', '*.png', full.names = T)
   mapframe_paths <- sort(mapframe_paths)
   
   mapframe_images <- image_read(mapframe_paths)
