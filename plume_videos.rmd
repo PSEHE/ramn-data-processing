@@ -205,7 +205,7 @@ make_mapframe <- function(calibrated_data, timestamp, pollutant_of_interest, ras
 ```{r}
 animate_mapframe_timeseries <- function(pollutant_of_interest, start_time, end_time){
   
-  mapframe_paths <- list.files('results_videos/png/', '*.png', full.names = T)
+  mapframe_paths <- list.files('results', '*.png', full.names = T)
   mapframe_paths <- sort(mapframe_paths)
   
   mapframe_images <- image_read(mapframe_paths)
