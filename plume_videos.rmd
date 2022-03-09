@@ -33,16 +33,16 @@ read_and_calibrate_data <- function(start_time, end_time){
   
   print('Reading in raw AQY data')
   
-  raw_data <- read.csv('results_downloader_data/PSE_AQY_2019-12-06_2021-01-04_freq_10.csv') %>% #update to local 
+  raw_data <- read.csv('PSE_AQY_10_min_2022-02-02.csv') %>% #update to local 
     filter(Time >= start_time & Time <= end_time)
   
-  cal_params <- read.csv('pse_calvals_2021-04.csv') #update to local
+  cal_params <- read.csv('pse_calvals_2022-02.csv') #update to local
   
   print('Calibrating AQY data')
   
   calibrated_data <- inner_join(raw_data, cal_params, by = 'ID') %>%
     filter(Time >= deployment_datetime & Time >= start_date & Time <= end_date) %>%
-    rename('O3_raw'='O3', 'PM25_raw'='PM2.5', 'NO2_raw'='NO2', 'Ox_raw'='Ox') %>%
+    rename('O3_raw'='O3', 'NO2_raw'='NO2', 'Ox_raw'='Ox') %>%
     mutate(O3 = O3.gain*(O3_raw-O3.offset), 
            Ox = Ox.gain*(Ox_raw-Ox.offset), NO2_int = O3 - NO2.a.value*Ox, NO2 = NO2.gain*(NO2_int-NO2.offset),
            PM25 = PM.gain*(PM25_raw - PM.offset)) %>%
@@ -247,14 +247,14 @@ make_pollution_video <- function(pollutant_of_interest, start_time, end_time){
   
   delete_existing_images()
   
-  lapply(timestamps, make_mapframe, calibrated_data=calibrated_data, pollutant_of_interest=pollutant_of_interest, raster_grid=raster_grid, raster_coords=raster_coords)
+  lapply(timestamps, make_mapframe, calibrated_data=calibrated_data, pollutant_of_interest=pollutant_of_interest, raster_grid=raster_grid, raster_coords=raster_coords, color_palette=color_palette)
   
-  animate_mapframe_series(pollutant_of_interest, start_time, end_time)
+  animate_mapframe_timeseries(pollutant_of_interest, start_time, end_time)
 }
 ```
 
 ```{r}
-make_pollution_video('PM25', '2020-08-20 00:00:00', '2020-08-20 01:00:00')
+make_pollution_video('PM25', '2020-08-20 00:00:00', '2020-08-20 03:00:00')
 ```
 
 
