@@ -165,11 +165,12 @@ get_raster_for_timestamp <- function(timestamp_data, raster_grid){
 ```
 
 ```{r}
-get_wind_data <- function(){
-  df_10m <- read_csv("wind_10m_avg.csv") %>% 
+get_wind_data <- function(start_time, end_time){
+  df_10m <- read.csv("wind_10m_avg.csv") %>% 
   mutate(Date = mdy(Date)) %>% 
-  mutate(date_time = as.POSIXct(paste(Date, Time_10m), format="%Y-%m-%d %H:%M:%S")) %>% 
-  select(Station, date_time, Longitude, Latitude, windspd_10m_avg, winddir_10m_avg)
+  mutate(date_time = as.character(as.POSIXct(paste(Date, Time_10m), format="%Y-%m-%d %H:%M:%S"))) %>% 
+  dplyr::select(Station, date_time, Longitude, Latitude, windspd_10m_avg, winddir_10m_avg) %>% 
+  filter(date_time >= start_time & date_time <= end_time)
 
 # Spatial transforms, converting from WGs84 to EPSG4326
 coords <- data.frame(lon = df_10m$Longitude, lat = df_10m$Latitude)
@@ -194,6 +195,7 @@ id <- c(1:length(start.x))
 df <- data.frame(id=id, start.x=start.x, start.y=start.y, w.speed=w.speed, w.direction=w.direction, w.date=w.date)
 head(df, 5)
 
+  return(df)
 }
 
 line.length <- 1000 #length of polylines representing wind in the map (meters)
@@ -201,6 +203,7 @@ arrow.length <- 300 #lenght of arrowhead leg (meters)
 arrow.angle <- 120 #angle of arrowhead leg (degrees azimuth)
 
 ```
+
 
 ```{r}
 get_wind_arrow <- function(df, start_time, end_time, line.length, arrow.length, arrow.angle){
@@ -234,8 +237,9 @@ end.xy.df <- rbind(end.xy.df,c(end.x,end.y,end.arrow.x,end.arrow.y))
 
 end.xy <- end.xy.df[-1,]
 df <- data.frame(df,end.xy)
-}
 
+return(df)
+}
 
 ```
 
@@ -310,7 +314,7 @@ make_mapframe <- function(calibrated_data, timestamp, pollutant_of_interest, ras
 
   timestamp_raster <- get_raster_for_timestamp(timestamp_data, raster_grid)
   
-  timestamp_map <- suppressWarnings(get_map_for_timestamp(timestamp_data, timestamp_raster, pollutant_of_interest, raster_coords, color_palette))
+  timestamp_map <- suppressWarnings(get_map_for_timestamp(timestamp_data, timestamp_raster, pollutant_of_interest, raster_coords, color_palette, sp.lines.df))
 }
 ```
 
@@ -356,9 +360,9 @@ make_pollution_video <- function(pollutant_of_interest, start_time, end_time){
   raster_coords <- get_raster_coords(monitor_sf)
   raster_grid <- get_raster_grid(raster_coords)
   
-  wind_arrows <- get_wind_arrow(start_time, end_time, line.length, arrow.length, arrow.angle)
+  wind_arrows <- get_wind_arrow(wind_data, start_time, end_time, line.length, arrow.length, arrow.angle)
   
-  sp.lines.df <- get_spatial_lines(df, start_time, end_time)
+  sp.lines.df <- get_spatial_lines(wind_arrows, start_time, end_time)
   
   color_palette <- get_color_palette(pollutant_of_interest)
   
@@ -366,7 +370,7 @@ make_pollution_video <- function(pollutant_of_interest, start_time, end_time){
   
   delete_existing_images()
   
-  lapply(timestamps, make_mapframe, calibrated_data=calibrated_data, pollutant_of_interest=pollutant_of_interest, raster_grid=raster_grid, raster_coords=raster_coords, color_palette=color_palette)
+  lapply(timestamps, make_mapframe, calibrated_data=calibrated_data, pollutant_of_interest=pollutant_of_interest, raster_grid=raster_grid, raster_coords=raster_coords, color_palette=color_palette, sp.lines.df=sp.lines.df)
   
   animate_mapframe_timeseries(pollutant_of_interest, start_time, end_time)
 }
